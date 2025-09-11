@@ -3,7 +3,8 @@ using UnityEngine;
 
 
 public enum ObstacleType {
-	Walls = 0,
+	None = 0,
+	Walls,
 	Hole
 }
 
@@ -28,6 +29,8 @@ public class TextureComponentGraph {
 		this.m_colors = texture.GetPixels32();
 		this.m_width = texture.width;
 		this.m_height = texture.height;
+		Debug.Log($"Width: {this.m_width}, Height: {this.m_height}");
+		this.m_visited = new bool[this.m_width * this.m_height];
 	}
 
 	private int UnwindIndex(in Vector2Int entry, int width) {
@@ -39,7 +42,7 @@ public class TextureComponentGraph {
 	}
 
 	private void AddNeighborToStack(Color32 baseColor, Vector2Int neighbor, int width, int height, ref ObstacleComponent component) {
-		if (neighbor.x <= 0 || neighbor.x >= width || neighbor.y >= height) {
+		if (neighbor.x < 0 || neighbor.x >= width || neighbor.y < 0 || neighbor.y >= height) {
 			return;
 		}
 		int index = UnwindIndex(neighbor, width);
@@ -53,18 +56,25 @@ public class TextureComponentGraph {
 		component.pixels.Add(neighbor);
 	}
 
-	private ObstacleComponent DepthFirstSearch(in Color32 baseColor, int width, int height) {
+	private ObstacleComponent DepthFirstSearch(Vector2Int seed, in Color32 baseColor, int width, int height) {
 		ObstacleComponent result = new ObstacleComponent();
 		ObstacleType obsType = ColorEquals(baseColor, in WALLS_COLOR) ? ObstacleType.Walls : ObstacleType.Hole;
 		result.pixels = new List<Vector2Int>(50);
 		result.obstacle = obsType;
 
+		this.m_stack.Clear();
+		AddNeighborToStack(baseColor, seed, width, height, ref result);
+
 		while (this.m_stack.Count != 0) {
 			Vector2Int entry = this.m_stack.Pop();
 			int currentIndex = UnwindIndex(entry, width);
-			bool wasVisited = this.m_visited[currentIndex];
-			if (wasVisited)
+			if (currentIndex >= this.m_visited.Length) {
 				continue;
+			}
+			Debug.Log($"Current Idx: {currentIndex} with entry: {entry}");
+			// bool wasVisited = this.m_visited[currentIndex];
+			// if (wasVisited)
+				// continue;
 			
 			ref Color32 currentColor = ref this.m_colors[currentIndex];
 			// Visit the neighbors and just add them to our component labeling if they match?
@@ -88,13 +98,19 @@ public class TextureComponentGraph {
 	public List<ObstacleComponent> GroupInRegions() {
 		List<ObstacleComponent> result = new List<ObstacleComponent>();
 		for (int i = 0; i < this.m_colors.Length; i++) {
-			int yPos = i / this.m_height;
+			if (this.m_visited[i]) continue;
+
+			int yPos = i / this.m_width;
 			int xPos = i % this.m_width;
 			ref Color32 color = ref this.m_colors[i];
-			this.m_visited[i] = true;
-			this.m_stack.Clear();
-			this.m_stack.Push(new Vector2Int(xPos, yPos));
-			ObstacleComponent compToAdd = DepthFirstSearch(in color, this.m_width, this.m_height);
+			if (ColorEquals(in color, FLOOR_COLOR)) {
+				this.m_visited[i] = true;
+				continue;
+			}
+			ObstacleComponent compToAdd = DepthFirstSearch(new Vector2Int(xPos, yPos), in color, this.m_width, this.m_height);
+			if (compToAdd.pixels.Count < 1) {
+				continue;
+			}
 			result.Add(compToAdd);
 		}
 		return result;

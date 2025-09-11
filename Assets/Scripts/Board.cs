@@ -20,7 +20,7 @@ public class Board : MonoBehaviour {
 
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
 	const float GOAL_THRESHOLD = 2f * 2f;
-	const float IMG_SCALE_FACTOR = 300f;
+	const float IMG_SCALE_FACTOR = 30f;
 		
 	private void Start() {
 		Assert.IsNotNull(this.m_startingPos, "Starting position not set!");
@@ -47,9 +47,29 @@ public class Board : MonoBehaviour {
 		
 		this.transform.localScale = scale;
 		
+		Texture2D wallsTex = new Texture2D(this.m_texture.width, this.m_texture.height);
+		Texture2D holesTex = new Texture2D(this.m_texture.width, this.m_texture.height);
 		// Each pixel is now a position in local space
 		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
 		// For each region find the centroid, and place a point there using the min and max X and Y positions
+		foreach (var obs in regionsList) {
+			Debug.Log($"Found obstacle region of type {obs.obstacle}, pixels:");
+			var randColor = new Color(Random.Range(0, 255), 0, 255, 255);
+			foreach (var pix in obs.pixels) {
+				if (obs.obstacle == ObstacleType.Walls) {
+					wallsTex.SetPixel(pix.x, pix.y, Color.yellow);
+				}
+				else {
+					holesTex.SetPixel(pix.x, pix.y, randColor);
+				}
+				Debug.Log($"\t{pix}");
+			}
+		}
+		wallsTex.Apply();
+		byte[] png = wallsTex.EncodeToPNG();
+		System.IO.File.WriteAllBytes("WallsTex.png", png);
+		byte[] pngHole = holesTex.EncodeToPNG();
+		System.IO.File.WriteAllBytes("HolesTex.png", pngHole);
 		long end = System.DateTime.Now.Ticks;
 		long ellapsed = end - start;
 		const double ticksInMillis = 10000;
@@ -71,7 +91,7 @@ public class Board : MonoBehaviour {
 		float disToGoalSqr = (this.m_goalPos.position - this.m_ball.position).sqrMagnitude;
 		if (disToGoalSqr < GOAL_THRESHOLD) {
 			// Yay, you win
-			Debug.Log("You win!");
+			// Debug.Log("You win!");
 		}
 	}
 	
