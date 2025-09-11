@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -13,23 +14,22 @@ public class Board : MonoBehaviour {
 	private Transform m_goalPos;
 
 	[SerializeField]
-	private Transform m_pivot;
-
-	[SerializeField]
 	private Texture2D m_texture;
+
+	private TextureComponentGraph m_textureComponentFinder;
 
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
 	const float GOAL_THRESHOLD = 2f * 2f;
 	const float IMG_SCALE_FACTOR = 300f;
-	static readonly Color FLOOR_COLOR = new Color(237, 28, 36);
-	static readonly Color WALLS_COLOR = new Color(255, 242, 0);
-	static readonly Color HOLE_COLOR = Color.black;
-	
+		
 	private void Start() {
 		Assert.IsNotNull(this.m_startingPos, "Starting position not set!");
 		Assert.IsNotNull(this.m_goalPos, "Goal position not set!");
+		Assert.IsNotNull(this.m_texture, "Texture is not set, cannot generate level!");
 		// Turn this back on when we grab the thing
 		this.m_ball.useGravity = false;
+		this.m_textureComponentFinder = new TextureComponentGraph(this.m_texture);
+		this.GenerateBoard();
 	}
 	
 	public void OnBoardPickedUp() {
@@ -41,18 +41,19 @@ public class Board : MonoBehaviour {
 	private void GenerateBoard() {
 		// Read in the texture
 		// Identify the width and height, those become the scale of our cube
-		Vector3 scale = new Vector3(this.m_texture.width / IMG_SCALE_FACTOR, 2, this.m_texture.height / IMG_SCALE_FACTOR);
+		long start = System.DateTime.Now.Ticks;
+		const float defaultScaleY = 0.2f;
+		Vector3 scale = new Vector3(this.m_texture.width / IMG_SCALE_FACTOR, defaultScaleY, this.m_texture.height / IMG_SCALE_FACTOR);
+		
+		this.transform.localScale = scale;
 		
 		// Each pixel is now a position in local space
-		Color[] pixels = this.m_texture.GetPixels();
-		for (int i = 0; i < pixels.Length; i++) {
-			int yPos = i / this.m_texture.height;
-			int xPos = i % this.m_texture.width;
-			ref Color color = ref pixels[i];
-			if (color == FLOOR_COLOR) {
-				Debug.Log("Floor detected at pixel");
-			}
-		}
+		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
+		// For each region find the centroid, and place a point there using the min and max X and Y positions
+		long end = System.DateTime.Now.Ticks;
+		long ellapsed = end - start;
+		const double ticksInMillis = 10000;
+		Debug.Log($"Calculated texture in {ellapsed / ticksInMillis} ms");
 	}
 
 	private void ResetBall() {
