@@ -54,12 +54,12 @@ public class Board : MonoBehaviour {
 		// For each region find the centroid, and place a point there using the min and max X and Y positions
 		foreach (var obs in regionsList) {
 			Debug.Log($"Found obstacle region of type {obs.obstacle}, pixels:");
-			var randColor = new Color(Random.Range(0, 255), 0, 255, 255);
+			var randColor = new Color(Random.Range(0, 1f), Random.Range(0f, 1f), 1f, 1f);
 			foreach (var pix in obs.pixels) {
-				if (obs.obstacle == ObstacleType.Walls) {
-					wallsTex.SetPixel(pix.x, pix.y, Color.yellow);
+				if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Wall)) {
+					wallsTex.SetPixel(pix.x, pix.y, randColor);
 				}
-				else {
+				if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
 					holesTex.SetPixel(pix.x, pix.y, randColor);
 				}
 				Debug.Log($"\t{pix}");

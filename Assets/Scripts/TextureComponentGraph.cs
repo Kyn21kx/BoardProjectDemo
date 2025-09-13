@@ -2,14 +2,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-public enum ObstacleType {
+[System.Flags]
+public enum CellFlags : byte {
 	None = 0,
-	Walls,
-	Hole
+	Outline = 0b1,
+	Wall = 0b10,
+	Hole = 0b100
 }
 
 public struct ObstacleComponent {
-	public ObstacleType obstacle;
+	public CellFlags obstacle;
 	public List<Vector2Int> pixels; // TODO: Adjust preallocation
 }
 
@@ -41,24 +43,25 @@ public class TextureComponentGraph {
 		return color.r == other.r && color.g == other.g && color.b == other.b && color.a == other.a;
 	}
 
-	private void AddNeighborToStack(Color32 baseColor, Vector2Int neighbor, int width, int height, ref ObstacleComponent component) {
+	private bool AddNeighborToStack(Color32 baseColor, Vector2Int neighbor, int width, int height, ref ObstacleComponent component) {
 		if (neighbor.x < 0 || neighbor.x >= width || neighbor.y < 0 || neighbor.y >= height) {
-			return;
+			return false;
 		}
 		int index = UnwindIndex(neighbor, width);
 		// Either we already processed it, or the pixel is not a member of the same region
 		if (this.m_visited[index] || !ColorEquals(this.m_colors[index], baseColor)) {
-			return;
+			return false;
 		}
 		this.m_visited[index] = true;
 		this.m_stack.Push(neighbor);
 		// Add it to the components pixel array
 		component.pixels.Add(neighbor);
+		return true;
 	}
 
 	private ObstacleComponent DepthFirstSearch(Vector2Int seed, in Color32 baseColor, int width, int height) {
 		ObstacleComponent result = new ObstacleComponent();
-		ObstacleType obsType = ColorEquals(baseColor, in WALLS_COLOR) ? ObstacleType.Walls : ObstacleType.Hole;
+		CellFlags obsType = ColorEquals(baseColor, in WALLS_COLOR) ? CellFlags.Wall: CellFlags.Hole;
 		result.pixels = new List<Vector2Int>(50);
 		result.obstacle = obsType;
 
@@ -79,18 +82,24 @@ public class TextureComponentGraph {
 			ref Color32 currentColor = ref this.m_colors[currentIndex];
 			// Visit the neighbors and just add them to our component labeling if they match?
 			// Get neighbors to the 4 directions
+			int neighborCount = 0;
 			
 			Vector2Int neighborLeft = new Vector2Int(entry.x - 1, entry.y);
-			AddNeighborToStack(baseColor, neighborLeft, width, height, ref result);
+			neighborCount = AddNeighborToStack(baseColor, neighborLeft, width, height, ref result) ? neighborCount + 1 : neighborCount;
 			
 			Vector2Int neighborRight = new Vector2Int(entry.x + 1, entry.y);
-			AddNeighborToStack(baseColor, neighborRight, width, height, ref result);
+			neighborCount = AddNeighborToStack(baseColor, neighborRight, width, height, ref result) ? neighborCount + 1 : neighborCount;
 			
 			Vector2Int neighborTop = new Vector2Int(entry.x, entry.y + 1);
-			AddNeighborToStack(baseColor, neighborTop, width, height, ref result);
+			neighborCount = AddNeighborToStack(baseColor, neighborTop, width, height, ref result) ? neighborCount + 1 : neighborCount;
 			
 			Vector2Int neighborBottom = new Vector2Int(entry.x, entry.y - 1);
-			AddNeighborToStack(baseColor, neighborBottom, width, height, ref result);
+			neighborCount = AddNeighborToStack(baseColor, neighborBottom, width, height, ref result) ? neighborCount + 1 : neighborCount;
+
+			const int allNeighborCount = 4;
+			if (neighborCount < allNeighborCount) {
+				result.obstacle |= CellFlags.Outline;
+			}
 		}
 		return result;
 	}
