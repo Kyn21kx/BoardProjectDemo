@@ -52,10 +52,27 @@ public class Board : MonoBehaviour {
 		// Each pixel is now a position in local space
 		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
 		// For each region find the centroid, and place a point there using the min and max X and Y positions
-		foreach (var obs in regionsList) {
+		foreach (ObstacleComponent obs in regionsList) {
 			Debug.Log($"Found obstacle region of type {obs.obstacle}, pixels:");
 			var randColor = new Color(Random.Range(0, 1f), Random.Range(0f, 1f), 1f, 1f);
-			foreach (var pix in obs.pixels) {
+			Vector2Int upperLeft = new (int.MaxValue, 0);
+			Vector2Int lowerRight = new (0, int.MaxValue);
+			foreach (Vector2Int pix in obs.pixels) {
+				// Find corners (xMin, yMax) and (xMax, yMin)
+				if (pix.x < upperLeft.x) {
+					upperLeft.x = pix.x;
+				}
+				if (pix.x > lowerRight.x) {
+					lowerRight.x = pix.x;
+				}
+
+				if (pix.y < lowerRight.y) {
+					lowerRight.y = pix.y;
+				}
+				if (pix.y > upperLeft.y) {
+					upperLeft.y = pix.y;
+				}
+				
 				if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Wall)) {
 					wallsTex.SetPixel(pix.x, pix.y, randColor);
 				}
@@ -64,6 +81,8 @@ public class Board : MonoBehaviour {
 				}
 				Debug.Log($"\t{pix}");
 			}
+			// Find centroid (average of corners)
+			Vector2Int centroid = (upperLeft + lowerRight) / 2;
 		}
 		wallsTex.Apply();
 		byte[] png = wallsTex.EncodeToPNG();
