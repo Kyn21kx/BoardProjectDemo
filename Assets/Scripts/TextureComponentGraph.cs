@@ -1,15 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-
-[System.Flags]
-public enum CellFlags : byte {
-	None = 0,
-	Outline = 0b1,
-	Wall = 0b10,
-	Hole = 0b100
-}
-
 public struct ObstacleComponent {
 	public CellFlags obstacle;
 	public List<Vector2Int> pixels; // TODO: Adjust preallocation

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Parabox.CSG;
 
 public class Board : MonoBehaviour {
 
@@ -83,6 +84,28 @@ public class Board : MonoBehaviour {
 			}
 			// Find centroid (average of corners)
 			Vector2Int centroid = (upperLeft + lowerRight) / 2;
+			// Create the mesh here and attach it to the filter comp
+			Mesh regionMesh = new Mesh();
+			regionMesh.vertices = new Vector3[] {
+				new Vector3(upperLeft.x / IMG_SCALE_FACTOR, upperLeft.y / IMG_SCALE_FACTOR, 0f),
+				new Vector3(lowerRight.x / IMG_SCALE_FACTOR, upperLeft.y / IMG_SCALE_FACTOR, 0f), // this is the upperRight
+				new Vector3(lowerRight.x / IMG_SCALE_FACTOR, lowerRight.y / IMG_SCALE_FACTOR, 0f),
+				new Vector3(upperLeft.x / IMG_SCALE_FACTOR, lowerRight.y / IMG_SCALE_FACTOR, 0f)
+			};
+			regionMesh.triangles = new int[] {3, 0, 1, 2, 3, 1};
+			GameObject regionObject = new GameObject("Region");
+			regionObject.AddComponent<MeshFilter>().mesh = regionMesh;
+			regionObject.AddComponent<MeshRenderer>();
+			BoardObstacle obstacleRef = regionObject.AddComponent<BoardObstacle>();
+			obstacleRef.Flags = obs.obstacle;
+			
+			regionObject.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+			regionObject.transform.position = this.transform.position;
+
+			var subtractedMesh = CSG.Subtract(this.gameObject, regionObject);
+			Assert.IsNotNull(subtractedMesh, "Failed to perform mesh boolean operation!");
+			
+			// Scale in the Z axis
 		}
 		wallsTex.Apply();
 		byte[] png = wallsTex.EncodeToPNG();
