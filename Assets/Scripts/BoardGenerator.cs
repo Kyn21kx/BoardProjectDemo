@@ -6,6 +6,9 @@ using Parabox.CSG;
 public class BoardGenerator : MonoBehaviour {
 
 	[SerializeField]
+	private GameObject m_baseBoard;
+	
+	[SerializeField]
 	private Rigidbody m_ball;
 
 	[SerializeField]
@@ -19,12 +22,6 @@ public class BoardGenerator : MonoBehaviour {
 
 	private TextureComponentGraph m_textureComponentFinder;
 
-	[SerializeField]
-	private GameObject m_compositeObject;
-
-	[SerializeField]
-	private CSG.BooleanOp m_operation = CSG.BooleanOp.Subtraction;
-
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
 	const float GOAL_THRESHOLD = 2f * 2f;
 	const float IMG_SCALE_FACTOR = 30f;
@@ -32,7 +29,8 @@ public class BoardGenerator : MonoBehaviour {
 	private void Start() {
 		// Assert.IsNotNull(this.m_startingPos, "Starting position not set!");
 		// Assert.IsNotNull(this.m_goalPos, "Goal position not set!");
-		// Assert.IsNotNull(this.m_texture, "Texture is not set, cannot generate level!");
+		Assert.IsNotNull(this.m_baseBoard, "Base object from which to generate the board was not found, please create one (simple box at the position the board will get generated)");
+		Assert.IsNotNull(this.m_texture, "Texture is not set, cannot generate level!");
 		// Turn this back on when we grab the thing
 		this.m_ball.useGravity = false;
 		this.m_textureComponentFinder = new TextureComponentGraph(this.m_texture);
@@ -52,7 +50,7 @@ public class BoardGenerator : MonoBehaviour {
 		const float defaultScaleY = 0.2f;
 		Vector3 scale = new Vector3(this.m_texture.width / IMG_SCALE_FACTOR, defaultScaleY, this.m_texture.height / IMG_SCALE_FACTOR);
 		
-		this.transform.localScale = scale;
+		this.m_baseBoard.transform.localScale = scale;
 		
 		// Each pixel is now a position in local space
 		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
@@ -72,7 +70,7 @@ public class BoardGenerator : MonoBehaviour {
 			cuboid.SetActive(true);
 			Destroy(cuboid);
 
-			// Find the global corners
+			// Find the global corners (BUG: This assumes the previous objects will always be positioned at the edges)
 			if (regionUpperLeft.x < globalUpperLeft.x) {
 				globalUpperLeft.x = regionUpperLeft.x;
 			}
@@ -88,15 +86,16 @@ public class BoardGenerator : MonoBehaviour {
 			}
 		}
 
-		var mat = this.GetComponent<MeshRenderer>().material;
-		GameObject regionObject = CombineMeshes(meshInstancesToCombine, mat);
-		this.m_compositeObject = regionObject;
+		// Adjust by the image scale
 		globalUpperLeft /= IMG_SCALE_FACTOR;
 		globalLowerRight /= IMG_SCALE_FACTOR;
-        GameObject pivot = CenterPivotPoint(in globalUpperLeft, in globalLowerRight, this.m_compositeObject);
+
+		var mat = this.m_baseBoard.GetComponent<MeshRenderer>().material;
+		GameObject regionObject = CombineMeshes(meshInstancesToCombine, mat);
+        GameObject pivot = CenterPivotPoint(in globalUpperLeft, in globalLowerRight, regionObject);
 		pivot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-		pivot.transform.position = this.transform.position;
-		GameObject sub = DoSubtract();
+		pivot.transform.position = this.m_baseBoard.transform.position;
+		GameObject sub = DoSubtract(this.m_baseBoard, regionObject);
 		Rigidbody subRig = sub.AddComponent<Rigidbody>();
 		subRig.isKinematic = true;
 		Destroy(pivot);
@@ -154,20 +153,8 @@ public class BoardGenerator : MonoBehaviour {
 		return pivot;
 	}
 
-	private GameObject DoSubtract() {
-		Model subtractedMesh = null;
-		switch(this.m_operation) {
-			case CSG.BooleanOp.Intersection:
-				subtractedMesh = CSG.Intersect(this.gameObject, this.m_compositeObject);
-				break;
-			case CSG.BooleanOp.Subtraction:
-				subtractedMesh = CSG.Subtract(this.gameObject, this.m_compositeObject);
-				break;
-			case CSG.BooleanOp.Union:
-				subtractedMesh = CSG.Union(this.gameObject, this.m_compositeObject);
-				break;
-				
-		}
+	private GameObject DoSubtract(GameObject lhs, GameObject rhs) {
+		Model subtractedMesh = CSG.Subtract(lhs, rhs);
 		Assert.IsNotNull(subtractedMesh, "Failed to perform mesh boolean operation!");
 		var composite = new GameObject("Subtracted");
 		composite.AddComponent<MeshFilter>().sharedMesh = subtractedMesh.mesh;
@@ -206,9 +193,6 @@ public class BoardGenerator : MonoBehaviour {
 	}
 	
 	private void Update() {
-		if (Input.GetKeyDown(KeyCode.P)) {
-			this.DoSubtract();
-		}
 		// float yDiff = Mathf.Abs(this.m_ball.position.y - this.transform.position.y);
 		// if (yDiff > OUTSIDE_OF_BOARD_THRESHOLD) {
 		// 	// Respawn the ball

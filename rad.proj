@@ -1,4 +1,3 @@
 // raddbg 0.9.19 project file
 
 recent_file: path: "Assets/Scripts/TextureComponentGraph.cs"
-breakpoint: source_location: "Assets/Scripts/TextureComponentGraph.cs:37:3"
