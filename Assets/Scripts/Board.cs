@@ -24,7 +24,7 @@ public class Board : MonoBehaviour {
 	private GameObject m_compositeObject;
 
 	[SerializeField]
-	private CSG.BooleanOp m_operation;
+	private CSG.BooleanOp m_operation = CSG.BooleanOp.Subtraction;
 
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
 	const float GOAL_THRESHOLD = 2f * 2f;
@@ -66,6 +66,9 @@ public class Board : MonoBehaviour {
 
 		foreach (ObstacleComponent obs in regionsList) {
 			Debug.Log($"Found obstacle region of type {obs.obstacle}, pixels:");
+			if (!BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
+				continue;
+			}
 			var randColor = new Color(Random.Range(0, 1f), Random.Range(0f, 1f), 1f, 1f);
 			Vector2Int upperLeft = new (int.MaxValue, 0);
 			Vector2Int lowerRight = new (0, int.MaxValue);
@@ -93,10 +96,17 @@ public class Board : MonoBehaviour {
 				}
 				Debug.Log($"\t{pix}");
 			}
-			// Find centroid (average of corners)
-			Vector2 centroid = ((upperLeft / (int)IMG_SCALE_FACTOR) + (lowerRight / (int)IMG_SCALE_FACTOR)) / 2;
 
-			Vector3 scaleForPrimitive = new Vector3(Mathf.Abs(upperLeft.x - lowerRight.x) / IMG_SCALE_FACTOR, Mathf.Abs(upperLeft.y - lowerRight.y) / IMG_SCALE_FACTOR, 1f);
+			Vector2 minCorner = new Vector2(upperLeft.x / IMG_SCALE_FACTOR, lowerRight.y / IMG_SCALE_FACTOR);
+            Vector2 maxCorner = new Vector2(lowerRight.x / IMG_SCALE_FACTOR, upperLeft.y / IMG_SCALE_FACTOR);
+            Vector2 size = maxCorner - minCorner;
+            Vector3 scaleForPrimitive = new Vector3(size.x, size.y, 1f);
+			// Find centroid (average of corners)
+            Vector3 centroid = new Vector3(
+                (minCorner.x + maxCorner.x) / 2f,
+                (minCorner.y + maxCorner.y) / 2f,
+                -0.5f
+            );
             Mesh regionMesh = new Mesh();
             regionMesh.name = $"Region mesh: {meshInstancesToCombine.Count}";
 			var cuboid = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -104,19 +114,15 @@ public class Board : MonoBehaviour {
 			cuboid.transform.localScale = scaleForPrimitive;
 
 			meshInstancesToCombine.Add(cuboid.GetComponent<MeshFilter>());
-			// Destroy(cuboid);
+			cuboid.SetActive(true);
+			Destroy(cuboid);
 			
-			// Scale in the Z axis
 		}
 
 		var mat = this.GetComponent<MeshRenderer>().material;
 		GameObject regionObject = CombineMeshes(meshInstancesToCombine, mat);
 		this.m_compositeObject = regionObject;
-		// var polyExtruder = new GameObject("Prism").AddComponent<PolyExtruderLight>();
-		// Vector3[] vertices3d = regionObject.GetComponent<MeshFilter>().mesh.vertices;
-		// Vector2[] vertices2D = vertices3d.Select(vertex => new Vector2(vertex.x, vertex.y)).ToArray();
-		// polyExtruder.createPrism("Test Prism", 0.5f, vertices2D, Color.red);
-		// We need to transform the new object to the original board
+
 		wallsTex.Apply();
 		byte[] png = wallsTex.EncodeToPNG();
 		System.IO.File.WriteAllBytes("WallsTex.png", png);
