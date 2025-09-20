@@ -16,6 +16,8 @@ public class TextureComponentGraph {
 	
 	static readonly Color32 FLOOR_COLOR = new Color32(237, 28, 36, 255);
 	static readonly Color32 WALLS_COLOR = new Color32(255, 242, 0, 255);
+	static readonly Color32 START_COLOR = new Color32(0, 183, 239, 255);
+	static readonly Color32 END_COLOR = new Color32(34, 177, 76, 255);
 	static readonly Color32 HOLE_COLOR = Color.black;
 
 	public TextureComponentGraph(Texture2D texture) {
@@ -51,7 +53,21 @@ public class TextureComponentGraph {
 
 	private ObstacleComponent DepthFirstSearch(Vector2Int seed, in Color32 baseColor, int width, int height) {
 		ObstacleComponent result = new ObstacleComponent();
-		CellFlags obsType = ColorEquals(baseColor, in WALLS_COLOR) ? CellFlags.Wall: CellFlags.Hole;
+
+		CellFlags obsType = CellFlags.None;
+		if (ColorEquals(baseColor, in WALLS_COLOR)) {
+			obsType |= CellFlags.Wall;
+		}
+		if (ColorEquals(baseColor, in HOLE_COLOR)) {
+			obsType |= CellFlags.Hole;
+		}
+		if (ColorEquals(baseColor, in START_COLOR)) {
+			obsType |= CellFlags.StartPos;
+		}
+		if (ColorEquals(baseColor, in END_COLOR)) {
+			obsType |= CellFlags.EndPos;
+		}
+		
 		result.pixels = new List<Vector2Int>(50);
 		result.obstacle = obsType;
 

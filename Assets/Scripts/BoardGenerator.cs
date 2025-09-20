@@ -22,6 +22,12 @@ public class BoardGenerator : MonoBehaviour {
 
 	private TextureComponentGraph m_textureComponentFinder;
 
+	[SerializeField]
+	private Vector3 m_startPos = Vector3.zero;
+	
+	[SerializeField]
+	private Vector3 m_endPos = Vector3.zero;
+
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
 	const float GOAL_THRESHOLD = 2f * 2f;
 	const float IMG_SCALE_FACTOR = 30f;
@@ -62,6 +68,17 @@ public class BoardGenerator : MonoBehaviour {
 
 		foreach (ObstacleComponent obs in regionsList) {
 			// TODO: Remove this bc it's skipping the walls
+			// Set the start and end positions
+			Assert.IsTrue(obs.pixels.Count > 0, $"No pixels found in region {obs.obstacle}");
+			if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.StartPos)) {
+				Vector2Int baseValue = obs.pixels[0];
+				this.m_startPos = new Vector3(baseValue.x / IMG_SCALE_FACTOR, 0f, baseValue.y / IMG_SCALE_FACTOR);
+				this.m_startPos = this.m_baseBoard.transform.TransformVector(this.m_startPos);
+			}
+			else if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.EndPos)) {
+				Vector2Int baseValue = obs.pixels[0];
+				this.m_endPos = new Vector3(baseValue.x / IMG_SCALE_FACTOR, this.m_baseBoard.transform.position.y, baseValue.y / IMG_SCALE_FACTOR);
+			}
 			if (!BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
 				continue;
 			}
@@ -99,6 +116,8 @@ public class BoardGenerator : MonoBehaviour {
 		Rigidbody subRig = sub.AddComponent<Rigidbody>();
 		subRig.isKinematic = true;
 		Destroy(pivot);
+		// MAYBE: Deactivate it instead of destroying it(?
+		Destroy(this.m_baseBoard);
 
 		long end = System.DateTime.Now.Ticks;
 		long ellapsed = end - start;
