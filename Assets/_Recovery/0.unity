@@ -1061,7 +1061,7 @@ MonoBehaviour:
   m_goalPos: {fileID: 0}
   m_texture: {fileID: 2800000, guid: c111c2d21c50cce4396c74baad5a7f18, type: 3}
   m_compositeObject: {fileID: 0}
-  m_operation: 2
+  m_operation: 0
 --- !u!114 &453552037
 MonoBehaviour:
   m_ObjectHideFlags: 0

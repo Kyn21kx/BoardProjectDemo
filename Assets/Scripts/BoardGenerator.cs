@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
-using System.Linq;
 using Parabox.CSG;
 
-public class Board : MonoBehaviour {
+public class BoardGenerator : MonoBehaviour {
 
 	[SerializeField]
 	private Rigidbody m_ball;
@@ -55,86 +54,107 @@ public class Board : MonoBehaviour {
 		
 		this.transform.localScale = scale;
 		
-		Texture2D wallsTex = new Texture2D(this.m_texture.width, this.m_texture.height);
-		Texture2D holesTex = new Texture2D(this.m_texture.width, this.m_texture.height);
-
 		// Each pixel is now a position in local space
 		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
 
 		// For each region find the centroid, and place a point there using the min and max X and Y positions
 		var meshInstancesToCombine = new List<MeshFilter>(regionsList.Count);
+        Vector3 globalUpperLeft = new (int.MaxValue, 0);
+        Vector3 globalLowerRight = new (0, int.MaxValue);
 
 		foreach (ObstacleComponent obs in regionsList) {
-			Debug.Log($"Found obstacle region of type {obs.obstacle}, pixels:");
+			// TODO: Remove this bc it's skipping the walls
 			if (!BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
 				continue;
 			}
-			var randColor = new Color(Random.Range(0, 1f), Random.Range(0f, 1f), 1f, 1f);
-			Vector2Int upperLeft = new (int.MaxValue, 0);
-			Vector2Int lowerRight = new (0, int.MaxValue);
-			foreach (Vector2Int pix in obs.pixels) {
-				// Find corners (xMin, yMax) and (xMax, yMin)
-				if (pix.x < upperLeft.x) {
-					upperLeft.x = pix.x;
-				}
-				if (pix.x > lowerRight.x) {
-					lowerRight.x = pix.x;
-				}
-
-				if (pix.y < lowerRight.y) {
-					lowerRight.y = pix.y;
-				}
-				if (pix.y > upperLeft.y) {
-					upperLeft.y = pix.y;
-				}
-				
-				if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Wall)) {
-					wallsTex.SetPixel(pix.x, pix.y, randColor);
-				}
-				if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
-					holesTex.SetPixel(pix.x, pix.y, randColor);
-				}
-				Debug.Log($"\t{pix}");
-			}
-
-			Vector2 minCorner = new Vector2(upperLeft.x / IMG_SCALE_FACTOR, lowerRight.y / IMG_SCALE_FACTOR);
-            Vector2 maxCorner = new Vector2(lowerRight.x / IMG_SCALE_FACTOR, upperLeft.y / IMG_SCALE_FACTOR);
-            Vector2 size = maxCorner - minCorner;
-            Vector3 scaleForPrimitive = new Vector3(size.x, size.y, 1f);
-			// Find centroid (average of corners)
-            Vector3 centroid = new Vector3(
-                (minCorner.x + maxCorner.x) / 2f,
-                (minCorner.y + maxCorner.y) / 2f,
-                -0.5f
-            );
-            Mesh regionMesh = new Mesh();
-            regionMesh.name = $"Region mesh: {meshInstancesToCombine.Count}";
-			var cuboid = GameObject.CreatePrimitive(PrimitiveType.Cube);
-			cuboid.transform.position = centroid;
-			cuboid.transform.localScale = scaleForPrimitive;
-
+			GameObject cuboid = GenerateCuboidRegion(in obs, out Vector2Int regionUpperLeft, out Vector2Int regionLowerRight);
 			meshInstancesToCombine.Add(cuboid.GetComponent<MeshFilter>());
 			cuboid.SetActive(true);
 			Destroy(cuboid);
-			
+
+			// Find the global corners
+			if (regionUpperLeft.x < globalUpperLeft.x) {
+				globalUpperLeft.x = regionUpperLeft.x;
+			}
+			if (regionLowerRight.x > globalLowerRight.x) {
+				globalLowerRight.x = regionLowerRight.x;
+			}
+
+			if (regionLowerRight.y < globalLowerRight.y) {
+				globalLowerRight.y = regionLowerRight.y;
+			}
+			if (regionUpperLeft.y > globalUpperLeft.y) {
+				globalUpperLeft.y = regionUpperLeft.y;
+			}
 		}
 
 		var mat = this.GetComponent<MeshRenderer>().material;
 		GameObject regionObject = CombineMeshes(meshInstancesToCombine, mat);
 		this.m_compositeObject = regionObject;
+		globalUpperLeft /= IMG_SCALE_FACTOR;
+		globalLowerRight /= IMG_SCALE_FACTOR;
+        GameObject pivot = CenterPivotPoint(in globalUpperLeft, in globalLowerRight, this.m_compositeObject);
+		pivot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+		pivot.transform.position = this.transform.position;
+		GameObject sub = DoSubtract();
+		Rigidbody subRig = sub.AddComponent<Rigidbody>();
+		subRig.isKinematic = true;
+		Destroy(pivot);
 
-		wallsTex.Apply();
-		byte[] png = wallsTex.EncodeToPNG();
-		System.IO.File.WriteAllBytes("WallsTex.png", png);
-		byte[] pngHole = holesTex.EncodeToPNG();
-		System.IO.File.WriteAllBytes("HolesTex.png", pngHole);
 		long end = System.DateTime.Now.Ticks;
 		long ellapsed = end - start;
 		const double ticksInMillis = 10000;
 		Debug.Log($"Calculated texture in {ellapsed / ticksInMillis} ms");
 	}
 
-	private void DoSubtract() {
+	private GameObject GenerateCuboidRegion(in ObstacleComponent obs, out Vector2Int upperLeft, out Vector2Int lowerRight) {
+		upperLeft = new (int.MaxValue, 0);
+		lowerRight = new (0, int.MaxValue);
+		foreach (Vector2Int pix in obs.pixels) {
+			// Find corners (xMin, yMax) and (xMax, yMin)
+			if (pix.x < upperLeft.x) {
+				upperLeft.x = pix.x;
+			}
+			if (pix.x > lowerRight.x) {
+				lowerRight.x = pix.x;
+			}
+
+			if (pix.y < lowerRight.y) {
+				lowerRight.y = pix.y;
+			}
+			if (pix.y > upperLeft.y) {
+				upperLeft.y = pix.y;
+			}
+		}
+
+		Vector2 minCorner = new Vector2(upperLeft.x / IMG_SCALE_FACTOR, lowerRight.y / IMG_SCALE_FACTOR); // Lower left
+	    Vector2 maxCorner = new Vector2(lowerRight.x / IMG_SCALE_FACTOR, upperLeft.y / IMG_SCALE_FACTOR); // Upper right
+	    Vector2 size = maxCorner - minCorner;
+	    Vector3 scaleForPrimitive = new Vector3(size.x, size.y, 2f);
+		// Find centroid (average of corners)
+	    Vector3 centroid = new Vector3(
+	        (minCorner.x + maxCorner.x) / 2f,
+	        (minCorner.y + maxCorner.y) / 2f,
+	        -0.5f
+	    );
+	    Mesh regionMesh = new Mesh();
+		var cuboid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		cuboid.transform.position = centroid;
+		cuboid.transform.localScale = scaleForPrimitive;
+
+		return cuboid;
+	}
+
+	private GameObject CenterPivotPoint(in Vector3 upperLeft, in Vector3 lowerRight, GameObject target) {
+		GameObject pivot = new("Pivot");
+		// Find the centroid of the mesh
+		Vector3 centroid = (upperLeft + lowerRight) / 2;
+		pivot.transform.position = centroid;
+		target.transform.parent = pivot.transform;
+		return pivot;
+	}
+
+	private GameObject DoSubtract() {
 		Model subtractedMesh = null;
 		switch(this.m_operation) {
 			case CSG.BooleanOp.Intersection:
@@ -152,7 +172,7 @@ public class Board : MonoBehaviour {
 		var composite = new GameObject("Subtracted");
 		composite.AddComponent<MeshFilter>().sharedMesh = subtractedMesh.mesh;
 		composite.AddComponent<MeshRenderer>().sharedMaterials = subtractedMesh.materials.ToArray();
-		
+		return composite;
 	}
 
 	private GameObject CombineMeshes(List<MeshFilter> meshFilters, Material mat) {

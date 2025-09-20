@@ -22,7 +22,6 @@ public class TextureComponentGraph {
 		this.m_colors = texture.GetPixels32();
 		this.m_width = texture.width;
 		this.m_height = texture.height;
-		Debug.Log($"Width: {this.m_width}, Height: {this.m_height}");
 		this.m_visited = new bool[this.m_width * this.m_height];
 	}
 
@@ -65,7 +64,6 @@ public class TextureComponentGraph {
 			if (currentIndex >= this.m_visited.Length) {
 				continue;
 			}
-			Debug.Log($"Current Idx: {currentIndex} with entry: {entry}");
 			// bool wasVisited = this.m_visited[currentIndex];
 			// if (wasVisited)
 				// continue;
