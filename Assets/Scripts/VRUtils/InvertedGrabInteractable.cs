@@ -33,13 +33,14 @@ public class InvertedGrabInteractable : XRGrabInteractable {
             // Calculate the controller's current rotation relative to its starting rotation.
 			IXRInteractor interactor = this.GetOldestInteractorSelecting();
 			Transform attachXform = this.GetAttachTransform(interactor);
-			Vector3 direction = (attachXform.position - interactor.transform.position).normalized;
-			if (direction == Vector3.zero) {
+			Vector3 direction = attachXform.position - interactor.transform.position;
+			const float epsilon = 0.001f;
+			if (direction.sqrMagnitude <= epsilon) {
 				Debug.Log("Possible");
 				return;
 			}
-			Debug.DrawRay(interactor.transform.position, -direction, Color.green);
-			CalculatedRotation = Quaternion.LookRotation(direction, Vector3.up);
+			Debug.DrawRay(interactor.transform.position, -direction.normalized, Color.green);
+			CalculatedRotation = Quaternion.LookRotation(-direction.normalized, Vector3.up);
         }
     }
 	
