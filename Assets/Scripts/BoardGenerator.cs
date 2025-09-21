@@ -9,54 +9,33 @@ public class BoardGenerator : MonoBehaviour {
 	private GameObject m_baseBoard;
 	
 	[SerializeField]
-	private Rigidbody m_ball;
-
-	[SerializeField]
-	private Transform m_startingPos;
-
-	[SerializeField]
-	private Transform m_goalPos;
+	private GameObject m_ballPrefab;
 
 	[SerializeField]
 	private Texture2D m_texture;
 
 	private TextureComponentGraph m_textureComponentFinder;
 
-	[SerializeField]
-	private Vector3 m_startPos = Vector3.zero;
-	
-	[SerializeField]
-	private Vector3 m_endPos = Vector3.zero;
-
-	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
-	const float GOAL_THRESHOLD = 2f * 2f;
 	const float IMG_SCALE_FACTOR = 30f;
 		
 	private void Start() {
-		// Assert.IsNotNull(this.m_startingPos, "Starting position not set!");
-		// Assert.IsNotNull(this.m_goalPos, "Goal position not set!");
 		Assert.IsNotNull(this.m_baseBoard, "Base object from which to generate the board was not found, please create one (simple box at the position the board will get generated)");
 		Assert.IsNotNull(this.m_texture, "Texture is not set, cannot generate level!");
-		// Turn this back on when we grab the thing
-		this.m_ball.useGravity = false;
-		this.m_textureComponentFinder = new TextureComponentGraph(this.m_texture);
-		this.GenerateBoard();
-	}
-	
-	public void OnBoardPickedUp() {
-		Debug.Log("Clicked");
-		// Identify if we have started playing
-		this.ResetBall();
+		Assert.IsNotNull(this.m_ballPrefab, "Ball prefab not set!");
 	}
 
-	private void GenerateBoard() {
+	public void Initialize() {
+		this.m_textureComponentFinder = new TextureComponentGraph(this.m_texture);
+	}
+
+	public void GenerateBoard() {
 		// Read in the texture
 		// Identify the width and height, those become the scale of our cube
 		long start = System.DateTime.Now.Ticks;
 		const float defaultScaleY = 0.2f;
-		Vector3 scale = new Vector3(this.m_texture.width / IMG_SCALE_FACTOR, defaultScaleY, this.m_texture.height / IMG_SCALE_FACTOR);
+		Vector3 scaleFromImage = new Vector3(this.m_texture.width / IMG_SCALE_FACTOR, defaultScaleY, this.m_texture.height / IMG_SCALE_FACTOR);
 		
-		this.m_baseBoard.transform.localScale = scale;
+		this.m_baseBoard.transform.localScale = scaleFromImage;
 		
 		// Each pixel is now a position in local space
 		List<ObstacleComponent> regionsList = this.m_textureComponentFinder.GroupInRegions();
@@ -66,18 +45,21 @@ public class BoardGenerator : MonoBehaviour {
         Vector3 globalUpperLeft = new (int.MaxValue, 0);
         Vector3 globalLowerRight = new (0, int.MaxValue);
 
+		GameObject startObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+		GameObject endObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
 		foreach (ObstacleComponent obs in regionsList) {
 			// TODO: Remove this bc it's skipping the walls
 			// Set the start and end positions
 			Assert.IsTrue(obs.pixels.Count > 0, $"No pixels found in region {obs.obstacle}");
 			if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.StartPos)) {
 				Vector2Int baseValue = obs.pixels[0];
-				this.m_startPos = new Vector3(baseValue.x / IMG_SCALE_FACTOR, 0f, baseValue.y / IMG_SCALE_FACTOR);
-				this.m_startPos = this.m_baseBoard.transform.TransformVector(this.m_startPos);
+				startObj.transform.position = new Vector3(baseValue.x / IMG_SCALE_FACTOR, baseValue.y / IMG_SCALE_FACTOR, -0.5f);
+				// meshInstancesToCombine.Add(startObj.GetComponent<MeshFilter>());
 			}
 			else if (BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.EndPos)) {
 				Vector2Int baseValue = obs.pixels[0];
-				this.m_endPos = new Vector3(baseValue.x / IMG_SCALE_FACTOR, this.m_baseBoard.transform.position.y, baseValue.y / IMG_SCALE_FACTOR);
+				endObj.transform.position = new Vector3(baseValue.x / IMG_SCALE_FACTOR, baseValue.y / IMG_SCALE_FACTOR, -0.5f);
+				// meshInstancesToCombine.Add(endObj.GetComponent<MeshFilter>());
 			}
 			if (!BitwiseUtils.HasCompositeFlag((byte)obs.obstacle, (byte)CellFlags.Hole)) {
 				continue;
@@ -85,7 +67,7 @@ public class BoardGenerator : MonoBehaviour {
 			GameObject cuboid = GenerateCuboidRegion(in obs, out Vector2Int regionUpperLeft, out Vector2Int regionLowerRight);
 			meshInstancesToCombine.Add(cuboid.GetComponent<MeshFilter>());
 			cuboid.SetActive(true);
-			Destroy(cuboid);
+			Destroy(cuboid, 2f);
 
 			// Find the global corners (BUG: This assumes the previous objects will always be positioned at the edges)
 			if (regionUpperLeft.x < globalUpperLeft.x) {
@@ -110,14 +92,26 @@ public class BoardGenerator : MonoBehaviour {
 		var mat = this.m_baseBoard.GetComponent<MeshRenderer>().material;
 		GameObject regionObject = CombineMeshes(meshInstancesToCombine, mat);
         GameObject pivot = CenterPivotPoint(in globalUpperLeft, in globalLowerRight, regionObject);
+		// Transform the objects by the pivot, somehow the Z axis of start gets 
+		startObj.transform.parent = pivot.transform;
+		endObj.transform.parent = pivot.transform;
 		pivot.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 		pivot.transform.position = this.m_baseBoard.transform.position;
+		// Vector3 startPosMod = startObj.transform.position;
+		// startPosMod.y = this.m_baseBoard.transform.position.y;
+		// startObj.transform.position = startPosMod;
 		GameObject sub = DoSubtract(this.m_baseBoard, regionObject);
-		Rigidbody subRig = sub.AddComponent<Rigidbody>();
-		subRig.isKinematic = true;
-		Destroy(pivot);
-		// MAYBE: Deactivate it instead of destroying it(?
-		Destroy(this.m_baseBoard);
+		// This now becomes the real board
+		var boardManager = sub.AddComponent<BoardManager>();
+		boardManager.InitializeBoard(startObj.transform.position, endObj.transform.position, this.m_ballPrefab);
+		AddWalls(scaleFromImage, pivot.transform, boardManager.transform);
+		boardManager.transform.SetParent(pivot.transform, true);
+		
+		// Cleanup
+		this.m_baseBoard.SetActive(false);
+		DestroyImmediate(regionObject);
+		DestroyImmediate(startObj);
+		DestroyImmediate(endObj);
 
 		long end = System.DateTime.Now.Ticks;
 		long ellapsed = end - start;
@@ -125,6 +119,64 @@ public class BoardGenerator : MonoBehaviour {
 		Debug.Log($"Calculated texture in {ellapsed / ticksInMillis} ms");
 	}
 
+	
+	private void AddWalls(Vector3 scale, Transform centerXform, Transform parent) {
+	    // Wall thickness and height properties
+	    float wallThickness = 0.2f;
+	    float wallHeight = scale.y * 1.5f; // Make walls 1.5x taller than the cube
+    
+	    // Calculate half dimensions for positioning
+	    float halfWidth = scale.x / 2f;
+	    float halfDepth = scale.z / 2f;
+	    float wallOffset = wallThickness / 2f;
+    
+	    // Wall positions (extending outward from cube perimeter)
+	    Vector3[] wallPositions = new Vector3[4] {
+	        // North wall (positive Z)
+	        new Vector3(centerXform.position.x, centerXform.position.y + wallHeight/2f, centerXform.position.z + halfDepth + wallOffset),
+	        // South wall (negative Z)
+	        new Vector3(centerXform.position.x, centerXform.position.y + wallHeight/2f, centerXform.position.z - halfDepth - wallOffset),
+	        // East wall (positive X)
+	        new Vector3(centerXform.position.x + halfWidth + wallOffset, centerXform.position.y + wallHeight/2f, centerXform.position.z),
+	        // West wall (negative X)
+	        new Vector3(centerXform.position.x - halfWidth - wallOffset, centerXform.position.y + wallHeight/2f, centerXform.position.z)
+	    };
+    
+	    // Wall scales
+	    Vector3[] wallScales = new Vector3[4] {
+	        // North/South walls span full width plus wall thickness on sides
+	        new Vector3(scale.x + wallThickness * 2f, wallHeight, wallThickness),
+	        new Vector3(scale.x + wallThickness * 2f, wallHeight, wallThickness),
+	        // East/West walls span full depth (no overlap with N/S walls)
+	        new Vector3(wallThickness, wallHeight, scale.z),
+	        new Vector3(wallThickness, wallHeight, scale.z)
+	    };
+    
+	    // Create wall GameObjects
+	    for (int i = 0; i < 4; i++) {
+	        GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        
+	        // Set transform properties
+	        wall.transform.position = wallPositions[i];
+	        wall.transform.localScale = wallScales[i];
+        
+	        // Optional: Set wall material/color
+	        Renderer wallRenderer = wall.GetComponent<Renderer>();
+	        if (wallRenderer != null) {
+	            wallRenderer.sharedMaterial.color = Color.gray;
+	        }
+        
+	        // Optional: Add collider (CreatePrimitive already adds BoxCollider)
+	        // You might want to set it as trigger or adjust physics properties
+	        BoxCollider wallCollider = wall.GetComponent<BoxCollider>();
+	        if (wallCollider != null) {
+	            // wallCollider.isTrigger = false; // Solid walls
+	        }
+			wall.transform.parent = parent;
+			wall.layer = LayerMask.NameToLayer("Ignore Raycast");
+	    }
+	}
+	
 	private GameObject GenerateCuboidRegion(in ObstacleComponent obs, out Vector2Int upperLeft, out Vector2Int lowerRight) {
 		upperLeft = new (int.MaxValue, 0);
 		lowerRight = new (0, int.MaxValue);
@@ -178,6 +230,7 @@ public class BoardGenerator : MonoBehaviour {
 		var composite = new GameObject("Subtracted");
 		composite.AddComponent<MeshFilter>().sharedMesh = subtractedMesh.mesh;
 		composite.AddComponent<MeshRenderer>().sharedMaterials = subtractedMesh.materials.ToArray();
+		composite.AddComponent<MeshCollider>().sharedMesh = subtractedMesh.mesh;
 		return composite;
 	}
 
@@ -205,11 +258,6 @@ public class BoardGenerator : MonoBehaviour {
         result.SetActive(true);
 		return result;
 	}
-
-	private void ResetBall() {
-		this.m_ball.useGravity = true;
-		this.m_ball.position = this.m_startingPos.position;
-	}
 	
 	private void Update() {
 		// float yDiff = Mathf.Abs(this.m_ball.position.y - this.transform.position.y);
@@ -226,5 +274,4 @@ public class BoardGenerator : MonoBehaviour {
 	}
 	
 }
-
 
