@@ -66,8 +66,8 @@ public class BoardManager : MonoBehaviour {
 	}
 
 	private void Update() {
-		if (!this.m_grabInteractable.IsActiveAndSelecting) return;
-		this.transform.rotation = Quaternion.Slerp(this.transform.rotation, this.m_grabInteractable.CalculatedRotation, Time.deltaTime * 3f);
+		// if (!this.m_grabInteractable.IsActiveAndSelecting) return;
+		// this.transform.rotation = Quaternion.Slerp(this.transform.rotation, this.m_grabInteractable.CalculatedRotation, Time.deltaTime * 3f);
 	}
 
 	

@@ -35,26 +35,27 @@ public class InvertedGrabInteractable : XRGrabInteractable {
     public override void ProcessInteractable(XRInteractionUpdateOrder.UpdatePhase updatePhase)
     {
         // base.ProcessInteractable(updatePhase); // Let the base class handle position, etc.
-		this.IsActiveAndSelecting = isSelected;
-        if (isSelected && updatePhase == XRInteractionUpdateOrder.UpdatePhase.Dynamic)
-        {
-            // Calculate the controller's current rotation relative to its starting rotation.
-			IXRInteractor interactor = this.GetOldestInteractorSelecting();
-			Transform attachXform = this.GetAttachTransform(interactor);
-			if (this.IsInitial) {
-				this.IsInitial = false;
-				this.m_initialPosition = attachXform.position;
-				Debug.Log($"Initialized {this.m_initialPosition}!");
-			}
-			Vector3 direction = (this.m_initialPosition - interactor.transform.position);
-			const float epsilon = 0.001f;
-			if (direction.sqrMagnitude <= epsilon) {
-				return;
-			}
-			Debug.DrawRay(interactor.transform.position, -direction.normalized, Color.red);
-			CalculatedRotation = Quaternion.LookRotation(-direction.normalized, Vector3.up);
-			// Quaternion.Angle(CalculatedRotation, targetRotation);
-        }
+		// this.IsActiveAndSelecting = isSelected;
+  //       if (isSelected && updatePhase == XRInteractionUpdateOrder.UpdatePhase.Dynamic)
+  //       {
+  //           // Calculate the controller's current rotation relative to its starting rotation.
+		// 	IXRInteractor interactor = this.GetOldestInteractorSelecting();
+		// 	Transform attachXform = this.GetAttachTransform(interactor);
+		// 	if (this.IsInitial) {
+		// 		this.IsInitial = false;
+		// 		this.m_initialPosition = attachXform.position;
+		// 		Debug.Log($"Initialized {this.m_initialPosition}!");
+		// 	}
+		// 	Vector3 direction = (this.m_initialPosition - interactor.transform.position);
+		// 	const float epsilon = 0.001f;
+		// 	if (direction.sqrMagnitude <= epsilon) {
+		// 		return;
+		// 	}
+		// 	Debug.DrawRay(interactor.transform.position, -direction.normalized, Color.red);
+		// 	CalculatedRotation = Quaternion.LookRotation(-direction.normalized, Vector3.up);
+		// 	// attachXform.transform.rotation = CalculatedRotation;
+		// 	// Quaternion.Angle(CalculatedRotation, targetRotation);
+  //       }
     }
 	
 }
