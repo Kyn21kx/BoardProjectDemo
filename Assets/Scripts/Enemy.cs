@@ -24,25 +24,29 @@ public class Enemy : MonoBehaviour {
 
 	private void FollowNext() {
 		this.m_currentIndex = (this.m_currentIndex + 1) % this.m_pathPositions.Length;
-		this.m_initialPosition = this.transform.position;
+		this.m_initialPosition = this.m_boardXform.InverseTransformPoint(this.transform.position);
 		this.m_blend = 0f;
 	}
 
 	private void HandleMove() {
 		this.m_blend += Time.deltaTime * this.m_speed;
-		this.transform.position = Vector3.Lerp(this.m_initialPosition, this.m_pathPositions[this.m_currentIndex], this.m_blend);
+		Vector3 transformedInitial = this.m_boardXform.TransformPoint(this.m_initialPosition);
+		Vector3 transformedEnd = this.m_boardXform.TransformPoint(this.m_pathPositions[this.m_currentIndex]);
+		this.transform.position = Vector3.Lerp(transformedInitial, transformedEnd, this.m_blend);
 		if (this.m_blend >= 1f) {
 			this.FollowNext();
 		}
 	}
 
+	
 	private void Start() {
 		this.transform.parent = this.m_boardXform;
-		// Add our own position as the first one
 		this.m_pathPositions = new Vector3[this.m_pathVisual.Length + 1];
-		this.m_pathPositions[0] = this.transform.position;
+
+		this.m_pathPositions[0] = this.m_boardXform.InverseTransformPoint(this.transform.position);
+
 		for (int i = 0; i < this.m_pathVisual.Length; i++) {
-			this.m_pathPositions[i + 1] = this.m_pathVisual[i].position;
+			this.m_pathPositions[i + 1] = this.m_boardXform.InverseTransformPoint(this.m_pathVisual[i].position);
 			Destroy(this.m_pathVisual[i].gameObject);
 		}
 		this.FollowNext();

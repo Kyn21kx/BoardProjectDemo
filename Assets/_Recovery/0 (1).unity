@@ -4986,7 +4986,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoardManager
   m_ball: {fileID: 1614234001}
-  m_goalPostPrefab: {fileID: 4695528004022771136, guid: 1e4d92a87ba771e4e9d1791eb71b89e9, type: 3}
 --- !u!114 &1778697602
 MonoBehaviour:
   m_ObjectHideFlags: 0

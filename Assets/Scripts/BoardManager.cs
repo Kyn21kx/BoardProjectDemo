@@ -5,17 +5,18 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 [RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(InvertedGrabInteractable))]
 [RequireComponent(typeof(MeshCollider))]
 public class BoardManager : MonoBehaviour {
 	
-	public Vector3 StartPosition { get; private set; }
-	public Vector3 EndPosition { get; private set; }
 	private Rigidbody m_rig;
-	private InvertedGrabInteractable m_grabInteractable;
+	private XRGrabInteractable m_grabInteractable;
 	private IXRSelectInteractor m_currentInteractor;
 	[SerializeField]
 	private Rigidbody m_ball;
+	[SerializeField]
+	private Transform m_goalPost;
+	[SerializeField]
+	private Transform m_initialPost;
 	private Quaternion m_previousRotation;
 
 	const float OUTSIDE_OF_BOARD_THRESHOLD = 5f;
@@ -24,7 +25,7 @@ public class BoardManager : MonoBehaviour {
 	private void Start() {
 		this.m_rig = this.GetComponent<Rigidbody>();
 		this.m_rig.isKinematic = true;
-		this.m_grabInteractable = this.GetComponent<InvertedGrabInteractable>();
+		this.m_grabInteractable = this.GetComponentInParent<XRGrabInteractable>();
 		// this.m_ball = GameManager.Instance.Player.GetComponent<Rigidbody>();
 		// Do not track rotation and fine tune some other properties
 		this.m_grabInteractable.trackPosition = false;
@@ -37,22 +38,19 @@ public class BoardManager : MonoBehaviour {
 	}
 
 	public void InitializeBoard(Vector3 startPos, Vector3 endPos, GameObject ballPrefab) {
-		this.StartPosition = startPos;
-		this.EndPosition = endPos;
-		GameObject ballInstance = Instantiate(ballPrefab, this.StartPosition, Quaternion.identity);
+		GameObject ballInstance = Instantiate(ballPrefab, this.m_initialPost.position, Quaternion.identity);
 		this.m_ball = ballInstance.GetComponent<Rigidbody>();
 		Assert.IsNotNull(this.m_ball, "Ball Rig was null");
-		this.m_ball.position = this.StartPosition;
 		this.m_ball.useGravity = false;
 	}
 
 	private void ResetBall() {
 		this.m_ball.useGravity = true;
-		this.m_ball.position = this.StartPosition;
+		this.m_ball.position = this.m_initialPost.position;
 	}
 
 	private void OnGrab(SelectEnterEventArgs args) {
-		this.m_grabInteractable.IsInitial = true;
+		// this.m_grabInteractable.IsInitial = true;
 		this.m_currentInteractor = args.interactorObject;
 		this.m_previousRotation = this.m_currentInteractor.transform.rotation;
 		if (!GameManager.Instance.Started) {
