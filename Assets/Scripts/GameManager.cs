@@ -4,6 +4,10 @@ public class GameManager : MonoBehaviour {
 	public static GameManager Instance { get; private set; }
 	public float EllapsedTime { get; private set; }
 	public bool Started { get; private set; } = false;
+	public GameObject Player => this.m_player;
+
+	[SerializeField]
+	private GameObject m_player;
 
 	private void Start() {
 		Instance = this;

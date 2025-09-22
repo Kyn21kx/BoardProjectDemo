@@ -9,6 +9,9 @@ public class Enemy : MonoBehaviour {
 	private float m_speed;
 
 	[SerializeField]
+	private Transform m_boardXform;
+
+	[SerializeField]
 	private float m_rotationSpeed;
 
 	private Vector3[] m_pathPositions;
@@ -34,11 +37,13 @@ public class Enemy : MonoBehaviour {
 	}
 
 	private void Start() {
+		this.transform.parent = this.m_boardXform;
 		// Add our own position as the first one
 		this.m_pathPositions = new Vector3[this.m_pathVisual.Length + 1];
 		this.m_pathPositions[0] = this.transform.position;
 		for (int i = 0; i < this.m_pathVisual.Length; i++) {
 			this.m_pathPositions[i + 1] = this.m_pathVisual[i].position;
+			Destroy(this.m_pathVisual[i].gameObject);
 		}
 		this.FollowNext();
 	}
@@ -47,6 +52,12 @@ public class Enemy : MonoBehaviour {
 		// Rotate a bit
 		this.transform.Rotate(0, this.m_rotationSpeed * Time.deltaTime, 0f, Space.World);
 		this.HandleMove();
+		Transform player = GameManager.Instance.Player.transform;
+		float disSqr = (player.position - this.transform.position).sqrMagnitude;
+		const float threshold = 2f * 2f;
+		if (disSqr < threshold) {
+			GameManager.Instance.TerminateGame();
+		}
 	}
 
 

@@ -14,6 +14,7 @@ public class BoardManager : MonoBehaviour {
 	private Rigidbody m_rig;
 	private InvertedGrabInteractable m_grabInteractable;
 	private IXRSelectInteractor m_currentInteractor;
+	[SerializeField]
 	private Rigidbody m_ball;
 	private Quaternion m_previousRotation;
 
@@ -24,10 +25,11 @@ public class BoardManager : MonoBehaviour {
 		this.m_rig = this.GetComponent<Rigidbody>();
 		this.m_rig.isKinematic = true;
 		this.m_grabInteractable = this.GetComponent<InvertedGrabInteractable>();
+		// this.m_ball = GameManager.Instance.Player.GetComponent<Rigidbody>();
 		// Do not track rotation and fine tune some other properties
 		this.m_grabInteractable.trackPosition = false;
 		this.m_grabInteractable.throwOnDetach = false;
-		this.m_grabInteractable.useDynamicAttach = true;
+		this.m_grabInteractable.useDynamicAttach = false;
 		this.m_grabInteractable.farAttachMode = UnityEngine.XR.Interaction.Toolkit.Attachment.InteractableFarAttachMode.Near;
 		
 		this.m_grabInteractable.selectEntered.AddListener(OnGrab);
@@ -50,6 +52,7 @@ public class BoardManager : MonoBehaviour {
 	}
 
 	private void OnGrab(SelectEnterEventArgs args) {
+		this.m_grabInteractable.IsInitial = true;
 		this.m_currentInteractor = args.interactorObject;
 		this.m_previousRotation = this.m_currentInteractor.transform.rotation;
 		if (!GameManager.Instance.Started) {
@@ -64,7 +67,7 @@ public class BoardManager : MonoBehaviour {
 
 	private void Update() {
 		if (!this.m_grabInteractable.IsActiveAndSelecting) return;
-		this.transform.rotation = this.m_grabInteractable.CalculatedRotation;
+		this.transform.rotation = Quaternion.Slerp(this.transform.rotation, this.m_grabInteractable.CalculatedRotation, Time.deltaTime * 3f);
 	}
 
 	
