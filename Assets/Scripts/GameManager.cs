@@ -9,8 +9,15 @@ public class GameManager : MonoBehaviour {
 	[SerializeField]
 	private GameObject m_player;
 
+	[SerializeField]
+	private AudioClip m_winningSound;
+
+	private AudioSource m_source;
+
 	private void Start() {
 		Instance = this;
+		this.m_source = this.gameObject.AddComponent<AudioSource>();
+		this.m_source.clip = this.m_winningSound;
 	}
 
 	private void Update() {
@@ -22,8 +29,12 @@ public class GameManager : MonoBehaviour {
 		this.Started = true;
 	}
 
-	public void TerminateGame() {
+	public void TerminateGame(bool won = false) {
 		this.Started = false;
+		if (!won) return;
+		// Do some sound effects, particles and shit
+		this.m_source.PlayOneShot(this.m_winningSound);
+		
 	}
 
 }

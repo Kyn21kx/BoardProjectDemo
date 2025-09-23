@@ -41,7 +41,7 @@ public class BoardManager : MonoBehaviour {
 		GameObject ballInstance = Instantiate(ballPrefab, this.m_initialPost.position, Quaternion.identity);
 		this.m_ball = ballInstance.GetComponent<Rigidbody>();
 		Assert.IsNotNull(this.m_ball, "Ball Rig was null");
-		this.m_ball.useGravity = false;
+ 		this.m_ball.useGravity = false;
 	}
 
 	private void ResetBall() {
@@ -61,6 +61,13 @@ public class BoardManager : MonoBehaviour {
 
 	private void OnRelease(SelectExitEventArgs args) {
 		this.m_currentInteractor = null;
+	}
+
+	private void FixedUpdate() {
+		float sqrDis = (this.m_ball.position - this.m_goalPost.position).sqrMagnitude;
+		if (sqrDis <= GOAL_THRESHOLD) {
+			GameManager.Instance.TerminateGame(won: true);
+		}
 	}
 
 	private void Update() {
